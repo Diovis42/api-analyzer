@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  api-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+    networks:
+      - dokploy-network
+    labels:
+      # Traefik configuration for Dokploy
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-analyzer.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.api-analyzer.entrypoints=websecure"
+      - "traefik.http.routers.api-analyzer.tls.certResolver=letsencrypt"
+      - "traefik.http.services.api-analyzer.loadbalancer.server.port=3000"
+      # Health check
+      - "traefik.http.routers.api-analyzer.middlewares=api-analyzer-headers"
+      - "traefik.http.middlewares.api-analyzer-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  dokploy-network:
+    external: true
